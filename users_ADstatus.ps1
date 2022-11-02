@@ -4,8 +4,6 @@ $userResults = @()
 foreach($object in $importedList)
 {
     $username = $object.Split(",")[0]
-    $ou = Get-ADUser -Filter * -Properties Mail | Select Name,Mail,DistinguishedName,@{n='OU';e={$_.DistinguishedName -replace '^.*?,(?=[A-Z]{2}=)'}}
-    Write-Host($ou)
 
     try {
         $userEnabled =  Get-ADUser $username -Properties AccountExpirationDate | Select-Object AccountExpirationDate -ExpandProperty "AccountExpirationDate"
