@@ -1,25 +1,38 @@
 # import the list of IT Users
-$importedList = Get-Content -Path './ITUsers.txt'
+$importedList = Get-Content -Path './usernames.txt'
+$log = @()
 
-foreach($name in $importedList){
-    # parse first name and last name from list
-    $fname = $name.Split(",")[1].trim()
-    $lname = $name.Split(",")[0].trim()
-    
-    # Get the username of the person from AD
-    $name = Get-ADUser -Filter {GivenName -eq $fname -and Surname -eq $lname} | Select Name
-    $sname = Out-String -InputObject $name
-    $username = $sname.Split([Environment]::NewLine)[6].trim()
-
+foreach($username in $importedList){
     # append the username to the U: drive fileshare path
     $path = "\\Fileshare2\Staff-FacultyFiles\$username"
 
-    #Create the new access control entry
-    $ACE = New-Object System.Security.AccessControl.FileSystemAccessRule('Everyone', 'FullControl', 'ContainerInherit, ObjectInherit', 'None', 'Deny')
-    # Pull the existing ACL and add the new 'deny everyone' entry
+    # getting the acl for the given fileshare
     $Acl = Get-Acl -Path $path
-    $Acl.AddAccessRule($ACE)
+    # get the length of the ACL before modifying
+    $length = $Acl.length
+    # finding all ACEs where the user is directly referenced
+    $Ace = $Acl.Access | Where-Object {($_.IdentityReference -eq "BABSON\$username") -and -not ($_.IsInherited)}
+    Write-Output "Removing permissions for $username."
+    # removing the ACEs from above
+    $Acl.RemoveAccessRule($Ace)
 
     # Set the new acl for the U: drive folder
     Set-Acl -Path $path -AclObject $Acl
+    # check the length of the new ACL and make sure if it smaller
+    if $Acl.length < $length {
+        Write-Output "Permissions for $username successfully changed."
+        $problem = "False"
+    }
+    else {
+        Write-Output "There was a problem. Please check permissions for $username."
+        $problem = "True"
+    }
+    
+    $log += [PSCustomObject]@{
+        user = $username
+        problem = $problem
+        acl = $acl
+    }
 }
+
+$log | Export-Csv UDrive_changelog.csv -NoTypeInformation
