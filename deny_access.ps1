@@ -18,8 +18,8 @@ foreach($username in $importedList){
 
     # Set the new acl for the U: drive folder
     Set-Acl -Path $path -AclObject $Acl
-    # check the length of the new ACL and make sure if it smaller
-    if $Acl.length < $length {
+    # check the length of the new ACL and make sure it is smaller
+    if ($Acl.length -lt $length) {
         Write-Output "Permissions for $username successfully changed."
         $problem = "False"
     }
