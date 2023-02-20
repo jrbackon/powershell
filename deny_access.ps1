@@ -1,38 +1,25 @@
 # import the list of IT Users
-$importedList = Get-Content -Path './usernames.txt'
-$log = @()
+$importedList = Get-Content -Path './ITSD.txt'
 
 foreach($username in $importedList){
     # append the username to the U: drive fileshare path
     $path = "\\Fileshare2\Staff-FacultyFiles\$username"
 
     # getting the acl for the given fileshare
-    $Acl = Get-Acl -Path $path
-    # get the length of the ACL before modifying
-    $length = $Acl.length
-    # finding all ACEs where the user is directly referenced
-    $Ace = $Acl.Access | Where-Object {($_.IdentityReference -eq "BABSON\$username") -and -not ($_.IsInherited)}
-    Write-Output "Removing permissions for $username."
-    # removing the ACEs from above
-    $Acl.RemoveAccessRule($Ace)
+    $acl = Get-Acl $path
 
-    # Set the new acl for the U: drive folder
-    Set-Acl -Path $path -AclObject $Acl
-    # check the length of the new ACL and make sure it is smaller
-    if ($Acl.length -lt $length) {
-        Write-Output "Permissions for $username successfully changed."
-        $problem = "False"
-    }
-    else {
-        Write-Output "There was a problem. Please check permissions for $username."
-        $problem = "True"
-    }
-    
-    $log += [PSCustomObject]@{
-        user = $username
-        problem = $problem
-        acl = $acl
+    # finding all ACEs where the user is directly referenced
+    $accessRule = $acl.Access | Where-Object {($_.IdentityReference -eq "BABSON\$username") -and -not ($_.IsInherited)}
+
+    if ($accessRule){
+        # removing the ACEs from above
+        $acl.RemoveAccessRule($accessRule)
+
+        # Set the new acl for the U: drive folder
+        Set-Acl $path -AclObject $acl
+        Write-Host "Access rule for $username has been removed."
+        
+    } else {
+        Write-Host "Access rule for $username not found."
     }
 }
-
-$log | Export-Csv UDrive_changelog.csv -NoTypeInformation
