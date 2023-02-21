@@ -1,5 +1,6 @@
 # import the list of IT Users
-$importedList = Get-Content -Path './ITSD.txt'
+$importedList = Get-Content -Path './college_marketing.txt'
+$log = @()
 
 foreach($username in $importedList){
     # append the username to the U: drive fileshare path
@@ -8,18 +9,34 @@ foreach($username in $importedList){
     # getting the acl for the given fileshare
     $acl = Get-Acl $path
 
-    # finding all ACEs where the user is directly referenced
-    $accessRule = $acl.Access | Where-Object {($_.IdentityReference -eq "BABSON\$username") -and -not ($_.IsInherited)}
+    # storing the ACL for the user share in preparation for looping
+    $accessRules = $acl.Access
 
-    if ($accessRule){
-        # removing the ACEs from above
-        $acl.RemoveAccessRule($accessRule)
-
-        # Set the new acl for the U: drive folder
-        Set-Acl $path -AclObject $acl
-        Write-Host "Access rule for $username has been removed."
-        
-    } else {
-        Write-Host "Access rule for $username not found."
+    $flag = "False"
+    foreach ($accessRule in $accessRules){
+        if ($accessRule.IdentityReference -eq "BABSON\$username"){
+            # removing the ACEs from above
+            $acl.RemoveAccessRule($accessRule)
+            
+            # Set the new acl for the U: drive folder
+            Set-Acl $path -AclObject $acl
+            $flag = "True"
+        }
     }
+
+    if ($flag -eq "True"){
+        Write-Output "Access for $username has been removed from the U: drive."
+        $result = "Access has been removed from the U: drive."
+    }
+    else {
+        Write-Output "No permissions for $username to remove."
+        $result = "No permissions to remove."
+    }
+
+    $log += [PSCustomObject]@{
+        user = $username
+        result = $result
+    }       
 }
+
+$log | Export-Csv UDrive_changelog.csv -NoTypeInformation
